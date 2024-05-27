@@ -1,7 +1,8 @@
 import streamlit as st
+import sqlite3
 
 # Adatbázis kapcsolat létrehozása a secrets.toml fájl alapján
-conn = st.experimental_connection('sqlite', type='sql')
+conn = st.experimental_connection('sql')
 
 # Táblázat létrehozása, ha még nem létezik
 conn.execute('''

@@ -1,38 +1,48 @@
 import streamlit as st
-import sqlite3
+from sqlalchemy import create_engine, text
 
-# Adatbázis kapcsolat létrehozása a secrets.toml fájl alapján
-conn = st.experimental_connection('sql')
+# Initialize connection.
+conn = st.connection('my_sql_connection', type='sql')
 
-# Táblázat létrehozása, ha még nem létezik
-conn.execute('''
-CREATE TABLE IF NOT EXISTS counter (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    count INTEGER NOT NULL
-)
-''')
+# Create table if it does not exist.
+with conn.engine.connect() as connection:
+    connection.execute(text('''
+    CREATE TABLE IF NOT EXISTS counter (
+        id INTEGER PRIMARY KEY AUTO_INCREMENT,
+        count INTEGER NOT NULL
+    )
+    '''))
 
-# Alapértelmezett érték beállítása, ha a tábla üres
-result = conn.execute('SELECT COUNT(*) FROM counter').fetchone()
-if result[0] == 0:
-    conn.execute('INSERT INTO counter (count) VALUES (0)')
+    # Initialize the counter if it is empty.
+    result = connection.execute(text('SELECT COUNT(*) FROM counter')).fetchone()
+    if result[0] == 0:
+        connection.execute(text('INSERT INTO counter (count) VALUES (0)'))
 
-# Aktuális érték beolvasása az adatbázisból
+# Function to get the current count.
 def get_count():
-    result = conn.execute('SELECT count FROM counter WHERE id = 1').fetchone()
-    return result[0]
+    with conn.engine.connect() as connection:
+        result = connection.execute(text('SELECT count FROM counter WHERE id = 1')).fetchone()
+        return result[0] if result else 0
 
-# Számláló érték növelése
+# Function to increment the count.
 def increment_count():
     current_count = get_count()
     new_count = current_count + 1
-    conn.execute('UPDATE counter SET count = ? WHERE id = 1', (new_count,))
+    with conn.engine.connect() as connection:
+        connection.execute(text('UPDATE counter SET count = :count WHERE id = 1'), {'count': new_count})
     return new_count
 
-# Streamlit felület
+# Streamlit app layout.
 st.title('Számláló alkalmazás')
 st.write('Az aktuális érték: ', get_count())
 
 if st.button('Növel'):
     new_count = increment_count()
     st.write('Az új érték: ', new_count)
+
+# Display saved values
+st.write("Mentett értékek:")
+with conn.engine.connect() as connection:
+    rows = connection.execute(text('SELECT * FROM counter')).fetchall()
+    for row in rows:
+        st.write(row)
